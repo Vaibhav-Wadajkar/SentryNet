@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SentryNet — Network Intelligence Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-root:        #070a12;
+            --bg-surface:     #0d1120;
+            --bg-elevated:    #111827;
+            --bg-hover:       #151d2e;
+            --border:         rgba(255,255,255,0.07);
+            --border-bright:  rgba(255,255,255,0.13);
+
+            --cyan:    #22d3ee;
+            --cyan-dim: rgba(34,211,238,0.12);
+            --green:   #34d399;
+            --green-dim: rgba(52,211,153,0.12);
+            --amber:   #fbbf24;
+            --amber-dim: rgba(251,191,36,0.12);
+            --rose:    #fb7185;
+            --rose-dim: rgba(251,113,133,0.12);
+            --violet:  #a78bfa;
+            --violet-dim: rgba(167,139,250,0.12);
+
+            --text-1: #f1f5f9;
+            --text-2: #94a3b8;
+            --text-3: #4b5563;
+
+            --mono: 'IBM Plex Mono', monospace;
+            --display: 'Syne', sans-serif;
+            --body: 'Inter', sans-serif;
+
+            --radius: 12px;
+            --radius-sm: 7px;
+            --shadow: 0 4px 24px rgba(0,0,0,0.4);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--body);
+            background: var(--bg-root);
+            color: var(--text-1);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Subtle grid background */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(34,211,238,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(34,211,238,0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .app {
+            position: relative;
+            z-index: 1;
+            max-width: 1480px;
+            margin: 0 auto;
+            padding: 1.5rem 2rem 3rem;
+        }
+
+        /* ─── HEADER ─── */
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 1.25rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 1.75rem;
+            flex-wrap: wrap;
+            gap: 1rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .logo-shield {
+            width: 38px; height: 38px;
+            background: var(--cyan-dim);
+            border: 1px solid rgba(34,211,238,0.25);
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--cyan);
+            font-size: 1.1rem;
+            animation: shield-pulse 4s ease-in-out infinite;
+        }
+
+        @keyframes shield-pulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(34,211,238,0.15); }
+            50% { box-shadow: 0 0 0 8px rgba(34,211,238,0); }
+        }
+
+        .logo-text h1 {
+            font-family: var(--display);
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            background: linear-gradient(120deg, #fff 40%, var(--cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1;
+        }
+
+        .logo-text p {
+            font-size: 0.7rem;
+            font-family: var(--mono);
+            color: var(--text-3);
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+        }
+
+        /* Badges */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            font-family: var(--mono);
+        }
+        .badge-mock { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(251,191,36,0.25); }
+        .badge-live { background: var(--green-dim); color: var(--green); border: 1px solid rgba(52,211,153,0.25); }
+
+        /* Live toggle */
+        .live-toggle-wrap {
+            display: flex; align-items: center; gap: 0.5rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            padding: 0.45rem 0.8rem;
+            border-radius: var(--radius-sm);
+        }
+
+        .toggle-switch {
+            position: relative; display: inline-block;
+            width: 34px; height: 18px;
+        }
+        .toggle-switch input { opacity: 0; width: 0; height: 0; }
+        .toggle-track {
+            position: absolute; inset: 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 20px;
+            cursor: pointer;
+            transition: background 0.25s;
+        }
+        .toggle-track::after {
+            content: '';
+            position: absolute;
+            width: 12px; height: 12px;
+            border-radius: 50%;
+            background: #fff;
+            top: 3px; left: 3px;
+            transition: transform 0.25s;
+        }
+        .toggle-switch input:checked + .toggle-track {
+            background: var(--cyan);
+        }
+        .toggle-switch input:checked + .toggle-track::after {
+            transform: translateX(16px);
+            background: #000;
+        }
+        .toggle-label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-2);
+        }
+        .toggle-countdown {
+            font-family: var(--mono);
+            font-size: 0.75rem;
+            color: var(--cyan);
+            display: none;
+            min-width: 32px;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            padding: 0.5rem 1rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.82rem; font-weight: 600;
+            cursor: pointer; border: none; outline: none;
+            transition: all 0.18s;
+            white-space: nowrap;
+        }
+        .btn-primary {
+            background: var(--cyan);
+            color: #000;
+            box-shadow: 0 0 16px rgba(34,211,238,0.25);
+        }
+        .btn-primary:hover:not(:disabled) {
+            background: #67e8f9;
+            box-shadow: 0 0 24px rgba(34,211,238,0.4);
+            transform: translateY(-1px);
+        }
+        .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+        .btn-ghost {
+            background: var(--bg-elevated);
+            color: var(--text-2);
+            border: 1px solid var(--border);
+        }
+        .btn-ghost:hover { background: var(--bg-hover); color: var(--text-1); border-color: var(--border-bright); }
+        .btn-danger-ghost {
+            background: var(--rose-dim);
+            color: var(--rose);
+            border: 1px solid rgba(251,113,133,0.2);
+        }
+        .btn-danger-ghost:hover { background: rgba(251,113,133,0.2); }
+
+        /* ─── NETWORK BANNER ─── */
+        .network-banner {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-left: 3px solid var(--cyan);
+            border-radius: var(--radius);
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.5rem;
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+        .banner-left { display: flex; align-items: center; gap: 0.85rem; }
+        .banner-icon { color: var(--cyan); font-size: 1.3rem; }
+        .banner-title { font-family: var(--mono); font-size: 0.9rem; font-weight: 600; }
+        .banner-sub { font-size: 0.78rem; color: var(--text-2); margin-top: 2px; }
+        .status-dot {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            font-size: 0.78rem; font-weight: 600; color: var(--green);
+        }
+        .status-dot::before {
+            content: '';
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--green);
+            animation: blink 2s ease-in-out infinite;
+        }
+        @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+        /* ─── STATS GRID ─── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+        @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2,1fr); } }
+        @media (max-width: 480px) { .stats-grid { grid-template-columns: 1fr; } }
+
+        .stat-card {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.2rem 1.4rem;
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-card::after {
+            content: '';
+            position: absolute;
+            top: 0; right: 0;
+            width: 60px; height: 60px;
+            border-radius: 0 var(--radius) 0 60px;
+            opacity: 0.06;
+        }
+        .stat-card.s-cyan { border-top: 2px solid var(--cyan); }
+        .stat-card.s-cyan::after { background: var(--cyan); }
+        .stat-card.s-green { border-top: 2px solid var(--green); }
+        .stat-card.s-green::after { background: var(--green); }
+        .stat-card.s-rose { border-top: 2px solid var(--rose); }
+        .stat-card.s-rose::after { background: var(--rose); }
+        .stat-card.s-violet { border-top: 2px solid var(--violet); }
+        .stat-card.s-violet::after { background: var(--violet); }
+
+        .stat-label {
+            font-size: 0.72rem;
+            font-family: var(--mono);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-3);
+            margin-bottom: 0.5rem;
+        }
+        .stat-value {
+            font-family: var(--display);
+            font-size: 2.1rem;
+            font-weight: 700;
+            line-height: 1;
+        }
+        .s-cyan .stat-value { color: var(--cyan); }
+        .s-green .stat-value { color: var(--green); }
+        .s-rose .stat-value { color: var(--rose); }
+        .s-violet .stat-value { color: var(--violet); }
+
+        /* ─── MAIN LAYOUT ─── */
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 1.5rem;
+            align-items: start;
+        }
+        @media (max-width: 1100px) { .main-grid { grid-template-columns: 1fr; } }
+
+        .panel {
+            background: var(--bg-surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.25rem 1.4rem;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1.1rem;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+        }
+
+        .panel-title {
+            font-family: var(--display);
+            font-size: 1rem;
+            font-weight: 700;
+            display: flex; align-items: center; gap: 0.5rem;
+        }
+        .panel-title i { color: var(--cyan); font-size: 0.9rem; }
+
+        /* ─── CONTROLS BAR ─── */
+        .controls-bar {
+            display: flex;
+            gap: 0.6rem;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+        .search-input {
+            flex: 1; min-width: 180px;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-1);
+            padding: 0.45rem 0.85rem;
+            font-size: 0.83rem;
+            font-family: var(--body);
+            outline: none;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .search-input:focus {
+            border-color: var(--cyan);
+            box-shadow: 0 0 0 2px rgba(34,211,238,0.1);
+        }
+        .filter-select {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-1);
+            padding: 0.45rem 0.75rem;
+            font-size: 0.83rem;
+            cursor: pointer;
+            outline: none;
+        }
+
+        /* Compare diff bar */
+        .diff-bar {
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.6rem 1rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 0.8rem;
+            margin-bottom: 0.75rem;
+        }
+        .diff-bar.visible { display: flex; }
+        .diff-joined { color: var(--green); font-weight: 600; }
+        .diff-left { color: var(--rose); font-weight: 600; }
+        .diff-sep { color: var(--text-3); }
+
+        /* ─── TABLE ─── */
+        .table-wrap { width: 100%; overflow-x: auto; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        thead th {
+            text-align: left;
+            padding: 0.6rem 0.85rem;
+            font-size: 0.7rem;
+            font-family: var(--mono);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-3);
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        tbody td {
+            padding: 0.8rem 0.85rem;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            vertical-align: middle;
+        }
+        tbody tr { cursor: pointer; transition: background 0.12s; }
+        tbody tr:hover td { background: var(--bg-hover); }
+        tbody tr.row-new td { background: rgba(52,211,153,0.04); }
+        tbody tr.row-gone td { background: rgba(251,113,133,0.04); opacity: 0.65; }
+        tbody tr.row-suspicious .dev-icon { color: var(--rose); background: var(--rose-dim); }
+
+        .dev-cell { display: flex; align-items: center; gap: 0.65rem; }
+        .dev-icon {
+            width: 32px; height: 32px;
+            border-radius: 8px;
+            background: var(--bg-elevated);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1rem;
+            color: var(--text-2);
+            flex-shrink: 0;
+        }
+        .dev-name { font-weight: 600; font-size: 0.87rem; line-height: 1.2; }
+        .dev-note {
+            font-size: 0.72rem;
+            color: var(--text-3);
+            font-style: italic;
+            margin-top: 1px;
+        }
+        .dev-type { font-size: 0.72rem; color: var(--text-3); }
+
+        .mono-cell {
+            font-family: var(--mono);
+            font-size: 0.8rem;
+            color: var(--text-2);
+        }
+
+        /* Anomaly badges */
+        .anom-badge {
+            display: inline-flex; align-items: center; gap: 0.3rem;
+            padding: 3px 9px;
+            border-radius: 20px;
+            font-size: 0.72rem;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .anom-ok { background: var(--green-dim); color: var(--green); border: 1px solid rgba(52,211,153,0.2); }
+        .anom-warn { background: var(--rose-dim); color: var(--rose); border: 1px solid rgba(251,113,133,0.2); animation: warn-pulse 2s infinite; }
+        .anom-new { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(251,191,36,0.2); }
+        @keyframes warn-pulse {
+            0%,100% { box-shadow: 0 0 0 0 rgba(251,113,133,0.3); }
+            60% { box-shadow: 0 0 0 5px rgba(251,113,133,0); }
+        }
+
+        /* Latency */
+        .latency-cell { font-family: var(--mono); font-size: 0.78rem; }
+        .lat-good { color: var(--green); }
+        .lat-mid { color: var(--amber); }
+        .lat-bad { color: var(--rose); }
+        .lat-unknown { color: var(--text-3); }
+        .lat-spinner { color: var(--text-3); font-style: italic; font-size: 0.72rem; }
+
+        /* Note edit inline */
+        .note-edit-wrap { display: none; margin-top: 4px; }
+        .note-edit-wrap.open { display: flex; gap: 4px; }
+        .note-input {
+            font-size: 0.75rem;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            color: var(--text-1);
+            padding: 2px 6px;
+            outline: none;
+            width: 160px;
+        }
+        .note-save-btn {
+            font-size: 0.7rem;
+            background: var(--cyan-dim);
+            border: 1px solid rgba(34,211,238,0.2);
+            color: var(--cyan);
+            border-radius: 5px;
+            padding: 2px 7px;
+            cursor: pointer;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.85rem;
+            font-size: 0.8rem;
+            color: var(--text-2);
+        }
+        .page-btn {
+            width: 28px; height: 28px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: var(--bg-elevated);
+            color: var(--text-2);
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.75rem;
+            transition: all 0.15s;
+        }
+        .page-btn:hover { border-color: var(--cyan); color: var(--cyan); }
+        .page-btn.active { background: var(--cyan-dim); border-color: var(--cyan); color: var(--cyan); font-weight: 700; }
+        .page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* Empty / loading */
+        .placeholder {
+            text-align: center;
+            padding: 3.5rem 1rem;
+            color: var(--text-3);
+        }
+        .placeholder i { font-size: 2.5rem; margin-bottom: 0.75rem; display: block; opacity: 0.4; }
+        .placeholder p { font-size: 0.85rem; }
+
+        .loader-wrap {
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            padding: 3.5rem 1rem; gap: 1rem;
+        }
+        .spin-ring {
+            width: 48px; height: 48px;
+            border: 3px solid rgba(34,211,238,0.1);
+            border-top-color: var(--cyan);
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .loader-text { font-size: 0.82rem; color: var(--text-2); font-family: var(--mono); }
+
+        /* ─── TERMINAL ─── */
+        .terminal {
+            background: #050810;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-top: 1.5rem;
+        }
+        .term-titlebar {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0.55rem 1rem;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-surface);
+        }
+        .term-dots { display: flex; gap: 5px; }
+        .term-dot { width: 9px; height: 9px; border-radius: 50%; }
+        .term-dot.r { background: #ff5f57; }
+        .term-dot.y { background: #ffbd2e; }
+        .term-dot.g { background: #28c840; }
+        .term-label { font-family: var(--mono); font-size: 0.72rem; color: var(--text-3); }
+        .term-body {
+            font-family: var(--mono);
+            font-size: 0.78rem;
+            padding: 0.85rem 1rem;
+            max-height: 180px;
+            overflow-y: auto;
+            line-height: 1.7;
+        }
+        .term-body::-webkit-scrollbar { width: 4px; }
+        .term-body::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+        .log-sys   { color: #475569; }
+        .log-ok    { color: var(--green); }
+        .log-warn  { color: var(--amber); }
+        .log-err   { color: var(--rose); }
+        .log-info  { color: #38bdf8; }
+
+        /* ─── SIDEBAR ─── */
+        .sidebar { display: flex; flex-direction: column; gap: 1.25rem; }
+
+        .chart-title {
+            font-family: var(--mono);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-3);
+            margin-bottom: 0.85rem;
+            display: flex; align-items: center; gap: 0.4rem;
+        }
+        .chart-title i { font-size: 0.8rem; color: var(--cyan); }
+
+        .chart-container { height: 190px; position: relative; }
+
+        /* ─── MODAL ─── */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(5,8,16,0.82);
+            backdrop-filter: blur(10px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+            padding: 1.5rem;
+        }
+        .modal-overlay.open { display: flex; }
+
+        .modal-box {
+            background: var(--bg-surface);
+            border: 1px solid var(--border-bright);
+            border-radius: 16px;
+            width: 100%;
+            max-width: 520px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.7);
+            animation: modal-in 0.2s ease;
+        }
+        @keyframes modal-in { from { opacity:0; transform: scale(0.96) translateY(8px); } }
+
+        .modal-box::-webkit-scrollbar { width: 4px; }
+        .modal-box::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 2px; }
+
+        .modal-head {
+            padding: 1.4rem 1.6rem 1rem;
+            border-bottom: 1px solid var(--border);
+            display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem;
+        }
+        .modal-head-title {
+            font-family: var(--display);
+            font-size: 1.15rem;
+            font-weight: 700;
+        }
+        .modal-close {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            color: var(--text-2);
+            width: 30px; height: 30px;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer;
+            flex-shrink: 0;
+            font-size: 0.9rem;
+            transition: all 0.15s;
+        }
+        .modal-close:hover { color: var(--text-1); border-color: var(--border-bright); }
+
+        .modal-body { padding: 1.2rem 1.6rem 1.6rem; }
+
+        .modal-device-icon {
+            text-align: center;
+            font-size: 2.8rem;
+            margin-bottom: 1rem;
+        }
+
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 1rem;
+            padding: 0.65rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.04);
+            font-size: 0.85rem;
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-key { color: var(--text-2); flex-shrink: 0; }
+        .detail-val { text-align: right; font-weight: 500; word-break: break-all; }
+        .detail-val.mono { font-family: var(--mono); font-size: 0.78rem; }
+
+        .ip-pill-list { display: flex; flex-wrap: wrap; gap: 4px; justify-content: flex-end; }
+        .ip-pill {
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 2px 7px;
+            font-family: var(--mono);
+            font-size: 0.72rem;
+        }
+
+        .anomaly-box {
+            margin-top: 1rem;
+            padding: 0.85rem 1rem;
+            border-radius: var(--radius-sm);
+            font-size: 0.82rem;
+        }
+        .anomaly-box.ok { background: var(--green-dim); border: 1px solid rgba(52,211,153,0.2); color: var(--green); }
+        .anomaly-box.warn { background: var(--rose-dim); border: 1px solid rgba(251,113,133,0.2); color: var(--rose); }
+        .anomaly-box.new-dev { background: var(--amber-dim); border: 1px solid rgba(251,191,36,0.2); color: var(--amber); }
+        .anomaly-box i { margin-right: 0.4rem; }
+
+        /* Note editor in modal */
+        .note-modal-wrap { margin-top: 1rem; }
+        .note-modal-label { font-size: 0.75rem; color: var(--text-3); margin-bottom: 0.4rem; font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.06em; }
+        .note-modal-input {
+            width: 100%;
+            background: var(--bg-elevated);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text-1);
+            padding: 0.5rem 0.75rem;
+            font-size: 0.83rem;
+            outline: none;
+            font-family: var(--body);
+            transition: border-color 0.2s;
+        }
+        .note-modal-input:focus { border-color: var(--cyan); }
+        .note-modal-save {
+            margin-top: 0.5rem;
+            width: 100%;
+            padding: 0.5rem;
+            border-radius: var(--radius-sm);
+            background: var(--cyan-dim);
+            border: 1px solid rgba(34,211,238,0.25);
+            color: var(--cyan);
+            font-weight: 600;
+            font-size: 0.82rem;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .note-modal-save:hover { background: rgba(34,211,238,0.2); }
+
+        /* Scan history compare */
+        #scanHistoryPanel { display: none; margin-bottom: 1.25rem; }
+        #scanHistoryPanel.visible { display: block; }
+
+        /* Notification permission bar */
+        .notif-bar {
+            display: none;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.7rem 1rem;
+            background: var(--amber-dim);
+            border: 1px solid rgba(251,191,36,0.2);
+            border-radius: var(--radius-sm);
+            font-size: 0.82rem;
+            color: var(--amber);
+            margin-bottom: 1rem;
+        }
+        .notif-bar.visible { display: flex; }
+
+        /* Mobile tweaks */
+        @media (max-width: 640px) {
+            .app { padding: 1rem; }
+            header { flex-direction: column; align-items: flex-start; }
+            .header-right { width: 100%; }
+            .btn { font-size: 0.78rem; padding: 0.45rem 0.75rem; }
+            .stats-grid { grid-template-columns: repeat(2,1fr); }
+            thead th:nth-child(3),
+            thead th:nth-child(4),
+            tbody td:nth-child(3),
+            tbody td:nth-child(4) { display: none; }
+        }
+    </style>
+</head>
+<body>
+<div class="app">
+
+    <!-- ─── HEADER ─── -->
+    <header>
+        <div class="logo">
+            <div class="logo-shield"><i class="fa-solid fa-shield-halved"></i></div>
+            <div class="logo-text">
+                <h1>SentryNet</h1>
+                <p>Network Intelligence Dashboard · v3.0</p>
+            </div>
+            <span id="mockBadge" class="badge badge-mock" style="display:none; margin-left:0.5rem;">
+                <i class="fa-solid fa-vial"></i> Mock Mode
+            </span>
+        </div>
+
+        <div class="header-right">
+            <!-- Live monitor toggle -->
+            <div class="live-toggle-wrap">
+                <label class="toggle-switch">
+                    <input type="checkbox" id="liveToggle">
+                    <span class="toggle-track"></span>
+                </label>
+                <span class="toggle-label" id="liveLabel">Live Monitor</span>
+                <span class="toggle-countdown" id="liveCountdown"></span>
+            </div>
+
+            <button class="btn btn-ghost" id="compareBtn">
+                <i class="fa-solid fa-code-compare"></i> Compare Scans
+            </button>
+            <button class="btn btn-ghost" id="exportBtn">
+                <i class="fa-solid fa-file-csv"></i> Export CSV
+            </button>
+            <button class="btn btn-ghost" id="mockBtn">
+                <i class="fa-solid fa-shuffle"></i> Mock Data
+            </button>
+            <button class="btn btn-primary" id="scanBtn">
+                <i class="fa-solid fa-satellite-dish"></i> Scan Network
+            </button>
+        </div>
+    </header>
+
+    <!-- Notification permission bar -->
+    <div class="notif-bar" id="notifBar">
+        <i class="fa-solid fa-bell"></i>
+        <span>Enable browser notifications to get alerted when new devices join your network.</span>
+        <button class="btn btn-ghost" style="padding:3px 10px; font-size:0.75rem;" id="notifGrantBtn">Enable</button>
+        <button style="background:none;border:none;color:var(--amber);cursor:pointer;margin-left:auto;" id="notifDismiss"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+
+    <!-- ─── NETWORK BANNER ─── -->
+    <div class="network-banner">
+        <div class="banner-left">
+            <div class="banner-icon"><i class="fa-solid fa-circle-nodes"></i></div>
+            <div>
+                <div class="banner-title" id="bannerIp">Detecting gateway...</div>
+                <div class="banner-sub" id="bannerSub">Probing network interface...</div>
+            </div>
+        </div>
+        <div class="status-dot">Connected</div>
+    </div>
+
+    <!-- ─── STATS ─── -->
+    <div class="stats-grid">
+        <div class="stat-card s-cyan">
+            <div class="stat-label">Total Devices</div>
+            <div class="stat-value" id="statTotal">—</div>
+        </div>
+        <div class="stat-card s-green">
+            <div class="stat-label">Trusted</div>
+            <div class="stat-value" id="statSafe">—</div>
+        </div>
+        <div class="stat-card s-rose">
+            <div class="stat-label">Anomalies</div>
+            <div class="stat-value" id="statAnom">—</div>
+        </div>
+        <div class="stat-card s-violet">
+            <div class="stat-label">Security Score</div>
+            <div class="stat-value" id="statScore">—</div>
+        </div>
+    </div>
+
+    <!-- ─── MAIN GRID ─── -->
+    <div class="main-grid">
+
+        <!-- LEFT COLUMN -->
+        <div>
+
+            <!-- Scan compare history panel -->
+            <div id="scanHistoryPanel" class="panel" style="margin-bottom:1.25rem;">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="fa-solid fa-code-compare"></i> Scan Comparison</div>
+                    <button class="btn btn-ghost" style="padding:3px 10px; font-size:0.75rem;" id="closeCmpBtn"><i class="fa-solid fa-xmark"></i> Close</button>
+                </div>
+                <div id="cmpContent" style="font-size:0.83rem; color: var(--text-2);">Loading comparison...</div>
+            </div>
+
+            <!-- Device table panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <div class="panel-title"><i class="fa-solid fa-list-ul"></i> Discovered Hosts</div>
+                </div>
+
+                <!-- Controls bar -->
+                <div class="controls-bar">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search IP, MAC, hostname, vendor…">
+                    <select class="filter-select" id="filterSelect">
+                        <option value="all">All Devices</option>
+                        <option value="safe">Trusted Only</option>
+                        <option value="suspicious">Anomalies Only</option>
+                        <option value="new">New Devices</option>
+                    </select>
+                </div>
+
+                <!-- Diff bar -->
+                <div class="diff-bar" id="diffBar"></div>
+
+                <!-- Table -->
+                <div id="tableContent">
+                    <div class="placeholder">
+                        <i class="fa-solid fa-satellite-dish"></i>
+                        <p>Click <strong>Scan Network</strong> to discover devices on your subnet.</p>
+                    </div>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination" id="pagination"></div>
+            </div>
+
+            <!-- Terminal log -->
+            <div class="terminal">
+                <div class="term-titlebar">
+                    <div class="term-dots">
+                        <span class="term-dot r"></span>
+                        <span class="term-dot y"></span>
+                        <span class="term-dot g"></span>
+                    </div>
+                    <span class="term-label">scan console · pipeline output</span>
+                    <span class="term-label" id="termCount"></span>
+                </div>
+                <div class="term-body" id="termBody">
+                    <div class="log-sys">[INIT] SentryNet v3.0 ready. Click "Scan Network" to begin.</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SIDEBAR -->
+        <div class="sidebar">
+
+            <div class="panel">
+                <div class="chart-title"><i class="fa-solid fa-chart-pie"></i> Device Categories</div>
+                <div class="chart-container"><canvas id="typeChart"></canvas></div>
+            </div>
+
+            <div class="panel">
+                <div class="chart-title"><i class="fa-solid fa-building"></i> Manufacturers</div>
+                <div class="chart-container"><canvas id="vendorChart"></canvas></div>
+            </div>
+
+            <div class="panel">
+                <div class="chart-title"><i class="fa-solid fa-shield-halved"></i> Security Overview</div>
+                <div class="chart-container"><canvas id="secChart"></canvas></div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<!-- ─── DEVICE DETAIL MODAL ─── -->
+<div class="modal-overlay" id="deviceModal">
+    <div class="modal-box">
+        <div class="modal-head">
+            <div class="modal-head-title" id="modalTitle">Device Profile</div>
+            <button class="modal-close" id="modalClose"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="modal-body" id="modalBody"></div>
+    </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────
+let devicesData = [];
+let forceMock = false;
+let liveActive = false;
+let liveTimer = null;
+let liveRemaining = 15;
+let scanInProgress = false;
+
+const PAGE_SIZE = 12;
+let currentPage = 1;
+
+let typeChart = null, vendorChart = null, secChart = null;
+
+let compareMode = false;
+let prevScanDevices = [];
+
+// ─── TERMINAL ────────────────────────────────────────────────
+const MAX_LOG_LINES = 120;
+function log(msg, type = 'sys') {
+    const body = document.getElementById('termBody');
+    const t = new Date().toLocaleTimeString('en-US', {hour12: false});
+    const line = document.createElement('div');
+    line.className = `log-${type}`;
+    line.textContent = `[${t}] ${msg}`;
+    body.appendChild(line);
+    // Cap lines
+    while (body.children.length > MAX_LOG_LINES) body.removeChild(body.firstChild);
+    body.scrollTop = body.scrollHeight;
+    const cnt = document.getElementById('termCount');
+    if (cnt) cnt.textContent = `${body.children.length} lines`;
+}
+
+// ─── NOTIFICATIONS ───────────────────────────────────────────
+function initNotifications() {
+    if (!('Notification' in window)) return;
+    if (Notification.permission === 'default') {
+        document.getElementById('notifBar').classList.add('visible');
+    }
+}
+
+document.getElementById('notifGrantBtn').addEventListener('click', () => {
+    Notification.requestPermission().then(p => {
+        document.getElementById('notifBar').classList.remove('visible');
+        if (p === 'granted') log('Browser notifications enabled.', 'ok');
+    });
+});
+document.getElementById('notifDismiss').addEventListener('click', () => {
+    document.getElementById('notifBar').classList.remove('visible');
+});
+
+function notifyNewDevice(device) {
+    if (Notification.permission !== 'granted') return;
+    const n = new Notification('SentryNet — New Device Detected', {
+        body: `${device.hostname} (${device.ip})\nMAC: ${device.mac} · ${device.vendor}`,
+        icon: 'https://cdn-icons-png.flaticon.com/512/2092/2092663.png'
+    });
+    setTimeout(() => n.close(), 7000);
+}
+
+// ─── ROUTER INFO ─────────────────────────────────────────────
+function fetchRouterInfo() {
+    fetch(`/router?mock=${forceMock}`)
+        .then(r => r.json())
+        .then(d => {
+            document.getElementById('bannerIp').innerHTML =
+                `<i class="fa-solid fa-router" style="color:var(--cyan);margin-right:0.4rem;"></i>Gateway: <strong>${d.router_ip}</strong>`;
+            document.getElementById('bannerSub').textContent =
+                `${d.interface} · Subnet: ${d.network}`;
+            log(`Gateway resolved: ${d.router_ip} on ${d.network}`, 'ok');
+        })
+        .catch(() => {
+            document.getElementById('bannerIp').textContent = 'Gateway detection failed';
+            log('Gateway resolution failed.', 'err');
+        });
+}
+
+// ─── PING LATENCY ────────────────────────────────────────────
+function fetchLatencies(devices) {
+    devices.forEach(d => {
+        const cell = document.getElementById(`lat-${d.mac.replace(/:/g,'')}`);
+        if (!cell) return;
+        fetch(`/ping/${d.ip}`)
+            .then(r => r.json())
+            .then(res => {
+                if (!cell) return;
+                const ms = res.latency_ms;
+                if (ms === null || ms === undefined) {
+                    cell.innerHTML = `<span class="lat-unknown">timeout</span>`;
+                } else if (ms < 20) {
+                    cell.innerHTML = `<span class="lat-good">${ms}ms</span>`;
+                } else if (ms < 100) {
+                    cell.innerHTML = `<span class="lat-mid">${ms}ms</span>`;
+                } else {
+                    cell.innerHTML = `<span class="lat-bad">${ms}ms</span>`;
+                }
+            })
+            .catch(() => {
+                if (cell) cell.innerHTML = `<span class="lat-unknown">—</span>`;
+            });
+    });
+}
+
+// ─── SCAN ────────────────────────────────────────────────────
+function runScan() {
+    if (scanInProgress) return;
+    scanInProgress = true;
+
+    const scanBtn = document.getElementById('scanBtn');
+    scanBtn.disabled = true;
+    scanBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Scanning…';
+
+    document.getElementById('tableContent').innerHTML = `
+        <div class="loader-wrap">
+            <div class="spin-ring"></div>
+            <div class="loader-text">Scanning ARP tables…</div>
+        </div>`;
+    document.getElementById('pagination').innerHTML = '';
+
+    log('Initializing subnet scan…', 'sys');
+    const delays = [
+        [400,  'Parsing ARP table entries…', 'sys'],
+        [900,  'Resolving MAC vendors…', 'sys'],
+        [1500, 'Performing reverse-DNS lookups…', 'sys'],
+        [2100, 'Running anomaly scoring…', 'warn'],
+    ];
+    delays.forEach(([ms, msg, type]) => setTimeout(() => log(msg, type), ms));
+
+    fetch(`/scan?mock=${forceMock}`)
+        .then(r => r.json())
+        .then(devices => {
+            devicesData = devices;
+            currentPage = 1;
+
+            const isMock = devices.length > 0 && devices[0].is_mock;
+            document.getElementById('mockBadge').style.display = isMock ? 'inline-flex' : 'none';
+
+            // New device notifications
+            devices.filter(d => d.is_new).forEach(d => {
+                log(`New device detected: ${d.hostname} (${d.ip}) — ${d.vendor}`, 'warn');
+                notifyNewDevice(d);
+            });
+
+            setTimeout(() => {
+                renderTable(devices);
+                renderStats(devices);
+                buildCharts(devices);
+                log(`Scan complete — ${devices.length} hosts discovered.`, 'ok');
+                scanBtn.disabled = false;
+                scanBtn.innerHTML = '<i class="fa-solid fa-satellite-dish"></i> Scan Network';
+                scanInProgress = false;
+                // Fetch latencies in background
+                fetchLatencies(devices);
+            }, 2500);
+        })
+        .catch(err => {
+            log('Scan failed. Is the Flask server running?', 'err');
+            document.getElementById('tableContent').innerHTML = `
+                <div class="placeholder" style="color:var(--rose);">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <p>Scan failed. Ensure the Flask server is active.</p>
+                </div>`;
+            scanBtn.disabled = false;
+            scanBtn.innerHTML = '<i class="fa-solid fa-satellite-dish"></i> Scan Network';
+            scanInProgress = false;
+        });
+}
+
+// ─── RENDER TABLE ─────────────────────────────────────────────
+function getIconClass(type) {
+    if (type.includes('Router'))     return 'fa-globe';
+    if (type.includes('Mobile'))     return 'fa-mobile-screen-button';
+    if (type.includes('Smart TV'))   return 'fa-tv';
+    if (type.includes('Smart Home')) return 'fa-house-signal';
+    if (type.includes('Console'))    return 'fa-gamepad';
+    if (type.includes('Server'))     return 'fa-server';
+    if (type.includes('Printer'))    return 'fa-print';
+    if (type.includes('Dev Board'))  return 'fa-microchip';
+    return 'fa-laptop';
+}
+
+function renderTable(devices) {
+    const search = document.getElementById('searchInput').value.toLowerCase();
+    const filter = document.getElementById('filterSelect').value;
+
+    let filtered = devices.filter(d => {
+        const q = search;
+        const matchSearch = !q ||
+            d.ip.includes(q) ||
+            d.mac.toLowerCase().includes(q) ||
+            d.vendor.toLowerCase().includes(q) ||
+            d.hostname.toLowerCase().includes(q);
+        const matchFilter =
+            filter === 'all' ||
+            (filter === 'safe' && d.anomaly === '✅ Normal') ||
+            (filter === 'suspicious' && d.anomaly === '⚠️ Suspicious') ||
+            (filter === 'new' && d.is_new);
+        return matchSearch && matchFilter;
+    });
+
+    // Diff with previous scan if compare mode
+    let joinedMacs = new Set(), goneMacs = new Set();
+    if (compareMode && prevScanDevices.length) {
+        const prevMacs = new Set(prevScanDevices.map(d => d.mac));
+        const curMacs  = new Set(devices.map(d => d.mac));
+        joinedMacs = new Set([...curMacs].filter(m => !prevMacs.has(m)));
+        goneMacs   = new Set([...prevMacs].filter(m => !curMacs.has(m)));
+
+        // Show diff bar
+        const bar = document.getElementById('diffBar');
+        bar.className = 'diff-bar visible';
+        bar.innerHTML = `
+            <i class="fa-solid fa-code-compare" style="color:var(--text-3)"></i>
+            <span class="diff-joined">+${joinedMacs.size} joined</span>
+            <span class="diff-sep">·</span>
+            <span class="diff-left">-${goneMacs.size} left</span>
+            <span class="diff-sep">·</span>
+            <span style="color:var(--text-2)">vs previous scan</span>
+        `;
+
+        // Also render gone devices (not in filtered but were in prev)
+        const goneDevices = prevScanDevices.filter(d => goneMacs.has(d.mac));
+        filtered = [...filtered, ...goneDevices.map(d => ({...d, _gone: true}))];
+    } else {
+        document.getElementById('diffBar').className = 'diff-bar';
+    }
+
+    if (filtered.length === 0) {
+        document.getElementById('tableContent').innerHTML = `
+            <div class="placeholder">
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <p>No devices match the current filters.</p>
+            </div>`;
+        document.getElementById('pagination').innerHTML = '';
+        return;
+    }
+
+    // Pagination
+    const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+    if (currentPage > totalPages) currentPage = 1;
+    const start = (currentPage - 1) * PAGE_SIZE;
+    const pageDevices = filtered.slice(start, start + PAGE_SIZE);
+
+    let html = `
+        <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Device</th>
+                    <th>IP Address</th>
+                    <th>MAC Address</th>
+                    <th>Vendor</th>
+                    <th>Latency</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>`;
+
+    pageDevices.forEach(d => {
+        const isSuspicious = d.anomaly && d.anomaly.includes('Suspicious');
+        const isNew = d.is_new;
+        const isGone = d._gone;
+        const macId = d.mac.replace(/:/g, '');
+
+        let rowClass = '';
+        if (isGone)      rowClass = 'row-gone';
+        else if (isNew)  rowClass = 'row-new';
+        else if (isSuspicious) rowClass = 'row-suspicious';
+
+        let badgeHtml;
+        if (isGone) {
+            badgeHtml = `<span class="anom-badge" style="background:rgba(251,113,133,0.08);color:var(--rose);border:1px solid rgba(251,113,133,0.2);">✕ Left network</span>`;
+        } else if (isSuspicious) {
+            badgeHtml = `<span class="anom-badge anom-warn">⚠ Suspicious</span>`;
+        } else if (isNew) {
+            badgeHtml = `<span class="anom-badge anom-new">★ New</span>`;
+        } else {
+            badgeHtml = `<span class="anom-badge anom-ok">✓ Normal</span>`;
+        }
+
+        const note = d.note || '';
+        const noteHtml = note
+            ? `<div class="dev-note" id="note-disp-${macId}">📝 ${escHtml(note)}</div>`
+            : `<div class="dev-note" id="note-disp-${macId}" style="display:none;"></div>`;
+
+        html += `
+            <tr class="${rowClass}" onclick="showDetail('${d.mac}')">
+                <td>
+                    <div class="dev-cell">
+                        <div class="dev-icon"><i class="fa-solid ${getIconClass(d.type)}"></i></div>
+                        <div>
+                            <div class="dev-name">
+                                ${escHtml(d.hostname)}
+                                ${!isGone ? `<i class="fa-solid fa-pen-to-square" style="font-size:0.7rem;color:var(--text-3);margin-left:5px;cursor:pointer;" onclick="toggleNoteEdit(event,'${d.mac}')"></i>` : ''}
+                            </div>
+                            ${noteHtml}
+                            <div class="note-edit-wrap" id="note-edit-${macId}">
+                                <input class="note-input" id="note-input-${macId}" type="text" value="${escHtml(note)}" placeholder="Add a note…" onclick="event.stopPropagation()">
+                                <button class="note-save-btn" onclick="saveNote(event,'${d.mac}')">Save</button>
+                            </div>
+                            <div class="dev-type">${d.type}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="mono-cell">${d.ip}</td>
+                <td class="mono-cell" style="color:var(--text-3);">${d.mac}</td>
+                <td style="font-size:0.82rem;">${escHtml(d.vendor)}</td>
+                <td class="latency-cell" id="lat-${macId}"><span class="lat-spinner">pinging…</span></td>
+                <td>${badgeHtml}</td>
+            </tr>`;
+    });
+
+    html += `</tbody></table></div>`;
+    document.getElementById('tableContent').innerHTML = html;
+
+    // Pagination controls
+    renderPagination(filtered.length, totalPages);
+}
+
+function renderPagination(total, totalPages) {
+    const pg = document.getElementById('pagination');
+    if (totalPages <= 1) { pg.innerHTML = `<span style="color:var(--text-3);font-size:0.78rem;">${total} device${total!==1?'s':''}</span>`; return; }
+
+    let html = `<span style="color:var(--text-3);font-size:0.78rem;margin-right:0.5rem;">${total} devices</span>`;
+    html += `<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹</button>`;
+    for (let i = 1; i <= totalPages; i++) {
+        html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+    }
+    html += `<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>›</button>`;
+    pg.innerHTML = html;
+}
+
+function goPage(p) {
+    currentPage = p;
+    renderTable(devicesData);
+    fetchLatencies(devicesData.slice((p-1)*PAGE_SIZE, p*PAGE_SIZE));
+}
+
+// ─── NOTE EDITING ─────────────────────────────────────────────
+function toggleNoteEdit(event, mac) {
+    event.stopPropagation();
+    const id = mac.replace(/:/g,'');
+    const wrap = document.getElementById(`note-edit-${id}`);
+    if (!wrap) return;
+    wrap.classList.toggle('open');
+    if (wrap.classList.contains('open')) {
+        document.getElementById(`note-input-${id}`).focus();
+    }
+}
+
+function saveNote(event, mac) {
+    event.stopPropagation();
+    const id = mac.replace(/:/g,'');
+    const val = document.getElementById(`note-input-${id}`).value.trim();
+    fetch('/notes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mac, note: val})
+    })
+    .then(r => r.json())
+    .then(() => {
+        // Update local data
+        const d = devicesData.find(x => x.mac === mac);
+        if (d) d.note = val;
+        const disp = document.getElementById(`note-disp-${id}`);
+        if (disp) {
+            disp.style.display = val ? '' : 'none';
+            disp.textContent = val ? `📝 ${val}` : '';
+        }
+        document.getElementById(`note-edit-${id}`).classList.remove('open');
+        log(`Note saved for ${mac}: "${val}"`, 'ok');
+    })
+    .catch(() => log('Failed to save note.', 'err'));
+}
+
+// ─── STATS ────────────────────────────────────────────────────
+function renderStats(devices) {
+    const total = devices.length;
+    const suspicious = devices.filter(d => d.anomaly && d.anomaly.includes('Suspicious')).length;
+    const safe = total - suspicious;
+    const score = total > 0 ? Math.round((safe / total) * 100) : 100;
+
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statSafe').textContent = safe;
+    document.getElementById('statAnom').textContent = suspicious;
+    const scoreEl = document.getElementById('statScore');
+    scoreEl.textContent = `${score}%`;
+}
+
+// ─── CHARTS ───────────────────────────────────────────────────
+const COLORS = ['#22d3ee','#34d399','#a78bfa','#fbbf24','#fb7185','#38bdf8','#4ade80','#f472b6'];
+
+function buildCharts(devices) {
+    const cats = {}, vends = {};
+    devices.forEach(d => {
+        cats[d.type] = (cats[d.type] || 0) + 1;
+        vends[d.vendor] = (vends[d.vendor] || 0) + 1;
+    });
+
+    const suspicious = devices.filter(d => d.anomaly && d.anomaly.includes('Suspicious')).length;
+    const newDevs = devices.filter(d => d.is_new).length;
+    const safe = devices.length - suspicious - newDevs;
+
+    if (typeChart) typeChart.destroy();
+    if (vendorChart) vendorChart.destroy();
+    if (secChart) secChart.destroy();
+
+    const chartDefaults = {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { labels: { color: '#64748b', font: { family: 'IBM Plex Mono', size: 10 }, boxWidth: 10 } } }
+    };
+
+    typeChart = new Chart(document.getElementById('typeChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: Object.keys(cats),
+            datasets: [{ data: Object.values(cats), backgroundColor: COLORS, borderWidth: 0 }]
+        },
+        options: { ...chartDefaults, cutout: '62%', plugins: { ...chartDefaults.plugins, legend: { ...chartDefaults.plugins.legend, position: 'bottom' } } }
+    });
+
+    vendorChart = new Chart(document.getElementById('vendorChart').getContext('2d'), {
+        type: 'bar',
+        data: {
+            labels: Object.keys(vends),
+            datasets: [{ data: Object.values(vends), backgroundColor: 'rgba(34,211,238,0.3)', borderColor: '#22d3ee', borderWidth: 1.5, borderRadius: 4 }]
+        },
+        options: {
+            ...chartDefaults,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { ticks: { color: '#475569', font: { size: 9 }, stepSize: 1 }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                x: { ticks: { color: '#475569', font: { size: 9 } }, grid: { display: false } }
+            }
+        }
+    });
+
+    secChart = new Chart(document.getElementById('secChart').getContext('2d'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Trusted', 'Suspicious', 'New'],
+            datasets: [{ data: [safe, suspicious, newDevs], backgroundColor: ['#34d399','#fb7185','#fbbf24'], borderWidth: 0 }]
+        },
+        options: { ...chartDefaults, cutout: '62%', plugins: { ...chartDefaults.plugins, legend: { ...chartDefaults.plugins.legend, position: 'bottom' } } }
+    });
+}
+
+// ─── DEVICE DETAIL MODAL ─────────────────────────────────────
+window.showDetail = function(mac) {
+    const d = devicesData.find(x => x.mac === mac);
+    if (!d) return;
+
+    document.getElementById('modalTitle').textContent = d.hostname;
+
+    const firstSeen = new Date(d.first_seen).toLocaleString();
+    const lastSeen  = new Date(d.last_seen).toLocaleString();
+    const ipPills = d.ips_seen.map(ip => `<span class="ip-pill">${ip}</span>`).join('');
+
+    const isSusp = d.anomaly && d.anomaly.includes('Suspicious');
+    const isNew  = d.is_new;
+    let anomBox;
+    if (isSusp) {
+        anomBox = `<div class="anomaly-box warn"><i class="fa-solid fa-triangle-exclamation"></i><strong>Suspicious:</strong> ${escHtml(d.anomaly_reason || 'Unusual behavior detected')}</div>`;
+    } else if (isNew) {
+        anomBox = `<div class="anomaly-box new-dev"><i class="fa-solid fa-star"></i><strong>New device</strong> — first time seen on this network.</div>`;
+    } else {
+        anomBox = `<div class="anomaly-box ok"><i class="fa-solid fa-circle-check"></i><strong>Trusted:</strong> ${escHtml(d.anomaly_reason || 'Consistent behavior')}</div>`;
+    }
+
+    document.getElementById('modalBody').innerHTML = `
+        <div class="modal-device-icon" style="color:${isSusp?'var(--rose)':'var(--cyan)'};">
+            <i class="fa-solid ${getIconClass(d.type)}"></i>
+        </div>
+        <div class="detail-row"><span class="detail-key">IP Address</span><span class="detail-val mono">${d.ip}</span></div>
+        <div class="detail-row"><span class="detail-key">MAC Address</span><span class="detail-val mono">${d.mac.toUpperCase()}</span></div>
+        <div class="detail-row"><span class="detail-key">Vendor</span><span class="detail-val">${escHtml(d.vendor)}</span></div>
+        <div class="detail-row"><span class="detail-key">Type</span><span class="detail-val">${d.type}</span></div>
+        <div class="detail-row"><span class="detail-key">First Seen</span><span class="detail-val">${firstSeen}</span></div>
+        <div class="detail-row"><span class="detail-key">Last Seen</span><span class="detail-val">${lastSeen}</span></div>
+        <div class="detail-row"><span class="detail-key">Scan Count</span><span class="detail-val">${d.appearance_count} scans</span></div>
+        <div class="detail-row">
+            <span class="detail-key">IP History</span>
+            <div class="ip-pill-list">${ipPills}</div>
+        </div>
+        ${anomBox}
+        <div class="note-modal-wrap">
+            <div class="note-modal-label">Device Note</div>
+            <input class="note-modal-input" id="noteModalInput" type="text" value="${escHtml(d.note||'')}" placeholder="Add a label or note…">
+            <button class="note-modal-save" onclick="saveNoteFromModal('${d.mac}')">
+                <i class="fa-solid fa-floppy-disk"></i> Save Note
+            </button>
+        </div>
+    `;
+
+    document.getElementById('deviceModal').classList.add('open');
+};
+
+window.saveNoteFromModal = function(mac) {
+    const val = document.getElementById('noteModalInput').value.trim();
+    fetch('/notes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({mac, note: val})
+    })
+    .then(r => r.json())
+    .then(() => {
+        const d = devicesData.find(x => x.mac === mac);
+        if (d) d.note = val;
+        renderTable(devicesData);
+        log(`Note saved for ${mac}`, 'ok');
+    });
+};
+
+document.getElementById('modalClose').addEventListener('click', () => {
+    document.getElementById('deviceModal').classList.remove('open');
+});
+document.getElementById('deviceModal').addEventListener('click', e => {
+    if (e.target === document.getElementById('deviceModal'))
+        document.getElementById('deviceModal').classList.remove('open');
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('deviceModal').classList.remove('open');
+});
+
+// ─── EXPORT CSV ───────────────────────────────────────────────
+document.getElementById('exportBtn').addEventListener('click', () => {
+    log('Exporting scan data to CSV…', 'info');
+    const link = document.createElement('a');
+    link.href = '/export';
+    link.download = '';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    log('CSV export triggered.', 'ok');
+});
+
+// ─── COMPARE SCANS ───────────────────────────────────────────
+document.getElementById('compareBtn').addEventListener('click', () => {
+    if (compareMode) {
+        compareMode = false;
+        prevScanDevices = [];
+        document.getElementById('scanHistoryPanel').classList.remove('visible');
+        document.getElementById('diffBar').className = 'diff-bar';
+        renderTable(devicesData);
+        log('Comparison mode disabled.', 'sys');
+        return;
+    }
+
+    log('Loading previous scan for comparison…', 'sys');
+    fetch('/history/previous')
+        .then(r => r.json())
+        .then(snap => {
+            if (!snap || !snap.devices) {
+                log('No previous scan available to compare.', 'warn');
+                document.getElementById('cmpContent').innerHTML = '<span style="color:var(--amber);">No previous scan found. Run at least 2 scans to compare.</span>';
+                document.getElementById('scanHistoryPanel').classList.add('visible');
+                return;
+            }
+            prevScanDevices = snap.devices;
+            compareMode = true;
+            const ts = new Date(snap.timestamp).toLocaleString();
+            document.getElementById('cmpContent').innerHTML = `
+                <span style="color:var(--text-2);">Comparing with scan from <strong style="color:var(--text-1);">${ts}</strong> (${snap.devices.length} devices)</span>`;
+            document.getElementById('scanHistoryPanel').classList.add('visible');
+            renderTable(devicesData);
+            log(`Compare mode active — vs scan from ${ts}`, 'ok');
+        })
+        .catch(() => log('Failed to load scan history.', 'err'));
+});
+
+document.getElementById('closeCmpBtn').addEventListener('click', () => {
+    compareMode = false;
+    prevScanDevices = [];
+    document.getElementById('scanHistoryPanel').classList.remove('visible');
+    document.getElementById('diffBar').className = 'diff-bar';
+    renderTable(devicesData);
+});
+
+// ─── MOCK TOGGLE ─────────────────────────────────────────────
+document.getElementById('mockBtn').addEventListener('click', () => {
+    forceMock = !forceMock;
+    const btn = document.getElementById('mockBtn');
+    if (forceMock) {
+        btn.innerHTML = '<i class="fa-solid fa-network-wired"></i> Live Scan';
+        btn.classList.add('btn-danger-ghost');
+        btn.classList.remove('btn-ghost');
+        log('Switched to mock data mode.', 'warn');
+    } else {
+        btn.innerHTML = '<i class="fa-solid fa-shuffle"></i> Mock Data';
+        btn.classList.add('btn-ghost');
+        btn.classList.remove('btn-danger-ghost');
+        log('Switched to live scan mode.', 'ok');
+    }
+    fetchRouterInfo();
+    runScan();
+});
+
+// ─── LIVE MONITORING ─────────────────────────────────────────
+function startLive() {
+    liveActive = true;
+    liveRemaining = 15;
+    const label = document.getElementById('liveLabel');
+    const cd = document.getElementById('liveCountdown');
+    label.textContent = 'Monitoring';
+    label.style.color = 'var(--green)';
+    cd.style.display = 'inline';
+    cd.textContent = '15s';
+
+    liveTimer = setInterval(() => {
+        if (scanInProgress) return; // Don't reset countdown during active scan
+        liveRemaining--;
+        cd.textContent = `${liveRemaining}s`;
+        if (liveRemaining <= 0) {
+            liveRemaining = 15;
+            log('[LIVE] Scheduled sweep triggered.', 'warn');
+            runScan();
+        }
+    }, 1000);
+    log('Live monitoring started — 15s interval.', 'ok');
+}
+
+function stopLive() {
+    liveActive = false;
+    clearInterval(liveTimer);
+    liveTimer = null;
+    const label = document.getElementById('liveLabel');
+    const cd = document.getElementById('liveCountdown');
+    label.textContent = 'Live Monitor';
+    label.style.color = '';
+    cd.style.display = 'none';
+    log('Live monitoring stopped.', 'sys');
+}
+
+document.getElementById('liveToggle').addEventListener('change', e => {
+    e.target.checked ? startLive() : stopLive();
+});
+
+// ─── SEARCH / FILTER ─────────────────────────────────────────
+document.getElementById('searchInput').addEventListener('input', () => {
+    currentPage = 1;
+    renderTable(devicesData);
+});
+document.getElementById('filterSelect').addEventListener('change', () => {
+    currentPage = 1;
+    renderTable(devicesData);
+});
+
+// ─── UTILS ───────────────────────────────────────────────────
+function escHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;');
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+    initNotifications();
+    fetchRouterInfo();
+    runScan();
+});
+</script>
+</body>
+</html>
